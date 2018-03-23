@@ -28,16 +28,14 @@ gdax_example2 = """{
     "sequence": 1,
     "order_id": "d50ec984-77a8-460a-b958-66f114b0de9b",
     "size": "1.36",
-    "price": "502.1",
-    "side": "buy",
+    "price": "502.15",
+    "side": "sell",
     "order_type": "limit"}""";
-tic()
-new_order = gdax_l3(gdax_example)
-toc()
-new_order2 = gdax_l3(gdax_example2)
 
-tic()
-println(hash(new_order))
-toc()
-println(hash(new_order2))
+book = Book()
+update!(book, gdax_example, GDAX)
+update!(book, gdax_example2, GDAX)
+
+summarize(book)
+
 end # module

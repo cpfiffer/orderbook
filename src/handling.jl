@@ -38,7 +38,6 @@ function gdax_l3(update_string::String)
 
         # New order
         if kind == "received"
-            println("Order type: $kind")
             side = get(odict, "side", "")
             size = get(odict, "size", "")
             price = get(odict, "price", "")
@@ -46,13 +45,11 @@ function gdax_l3(update_string::String)
             order_type = get(odict, "order_type", "")
 
             if good_order(side, size, price, order_id)
-                new_order::gdax_order = gdax_order(kind, time, prod,
+                new_order::GDAXOrder = GDAXOrder(kind, time, prod,
                                                    sequence, order_id,
                                                    size, price, side,
                                                    order_type)
-
                 return new_order
-
             else
                 # Panic!
                 # :TODO Why is there a bad order?
