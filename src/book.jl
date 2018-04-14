@@ -2,18 +2,18 @@
 @enum Exchange GDAX
 
 function enum_side(side::String)
-    if side == "buy"
+    if side == "buy" || side == "bid"
         return buy
-    elseif side == "sell"
+    elseif side == "sell"|| side == "ask"
         return sell
     end
     return null
 end
 
 struct NumOrder
-   price::Float64
-   size ::Float64
-   side ::Side
+    size ::Float64
+    price::Float64
+    side ::Side
 end
 
 nullorder() = NumOrder(0.0, 0.0, null)
@@ -26,15 +26,26 @@ function isnullorder(o::NumOrder)
 end
 
 mutable struct Book
-   orders :: Dict{UInt64, NumOrder}
+    orders :: Dict{UInt64, NumOrder}
 
-   best_buy  :: UInt64
-   best_sell :: UInt64
+    best_buy  :: UInt64
+    best_sell :: UInt64
 
-   buys  :: Vector{UInt64}
-   sells :: Vector{UInt64}
+    buys  :: Vector{UInt64}
+    sells :: Vector{UInt64}
 
-   Book() = new(Dict(), 0.0, 0.0)
+    prices :: Dict{String, Float64}
+
+    best_buy_str  :: String
+    best_sell_str :: String
+
+    last_price   :: Float64
+    trade_prices :: Vector{Float64}
+    trades # Table
+
+    Book() = new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
+        Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
+        trade_table())
 end
 
 function getorder(book::Book, key::UInt64)
@@ -52,18 +63,56 @@ function best_buy(book::Book)
     getorder(book, book.best_buy)
 end
 
+function best_sell_prices!(book::Book)
+    init :: Bool = true
+    lowest = 0
+    lowest_str = "0"
+    for i = keys(book.prices)
+        if sign(book.prices[i]) < 0
+
+            numval :: Float64 = parse(Float64, i) * -one(Float64)
+
+            if init
+                init = false
+                lowest = numval
+                lowest_str = i
+            elseif numval > lowest
+                lowest = numval
+                lowest_str = i
+            end
+        end
+    end
+
+    book.best_sell_str = lowest_str
+end
+
+function best_buy_prices!(book::Book)
+    highest = 0
+    highest_str = "0"
+    for i = keys(book.prices)
+        if sign(book.prices[i]) > 0
+            numval :: Float64 = parse(Float64, i)
+            if numval > highest || highest == 0
+                highest = numval
+                highest_str = i
+            end
+        end
+    end
+
+    book.best_buy_str = highest_str
+end
 
 function update!(book::Book, message::String, exchange::Exchange)
-   if exchange == GDAX
-       new_order::GDAXOrder = gdax_l3(message)
-       order_hash::UInt64 = hash(new_order)
-       if haskey(book.orders, order_hash)
-           # Deal with this. :TODO.
-       else
-           update_best!(book, new_order, order_hash)
-           book.orders[order_hash] = broaden(new_order)
-       end
-   end
+    if exchange == GDAX
+        new_order::GDAXOrder = gdax_l3(message)
+        order_hash::UInt64 = hash(new_order)
+        if haskey(book.orders, order_hash)
+            # Deal with this. :TODO.
+        else
+            update_best!(book, new_order, order_hash)
+            book.orders[order_hash] = broaden(new_order)
+        end
+    end
 end
 
 function summarize(book::Book)
@@ -81,7 +130,52 @@ function summarize(book::Book)
     \nOrder count: $order_count\n")
 end
 
-function delete!(book::Book, key::String)
+function summarize_gemini(book::Book)
+    println("\n===Summary===")
+
+    numorders = length(book.prices)
+
+    println("Number of orders: $numorders")
+
+    bb = book.best_buy_str
+
+    if bb == "0"
+        #
+    else
+        bbq = book.prices[bb]
+
+        println("Best bid price: $bb")
+        println("Best bid quant: $bbq")
+    end
+
+    bs = book.best_sell_str
+
+    if bs == "0"
+        #
+    else
+        bsq = book.prices[bs]
+
+        println("Best ask price: $bs")
+        println("Best ask quant: $bsq")
+    end
+
+    midpoint = (parse(Float64, bs) + parse(Float64, bb)) / 2
+    println("Midpoint:  $midpoint")
+
+    spread = parse(Float64, bs) - parse(Float64, bb)
+    println("Spread: $spread")
+
+    lastprice = book.last_price
+    println("Last price: $lastprice")
+
+    vol = var(book.trade_prices)
+    println("Volatility: $vol")
+
+    sd = sqrt(vol)
+    println("Standard deviation: $sd")
+end
+
+function delete_order!(book::Book, key::String)
     if haskey(book.orders, key)
         if key == book.best_buy || key == book.best_sell
             # TODO: Pull top order from by/sell

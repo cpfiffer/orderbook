@@ -14,6 +14,18 @@ function good_order(side::String, size::String, price::String, id::String)
     end
 end
 
+function qget(dict::Dict, str::String)::String
+    return get(dict, str, "")
+end
+
+function nget(dict::Dict, str::String)::Int64
+    return get(dict, str, -1)
+end
+
+function dictget(dict::Dict, str::String)::Dict
+    return get(dict, str, dict())
+end
+
 function gdax_l3(update_string::String)
     # {
     #     "type": "received",
@@ -62,4 +74,94 @@ function gdax_l3(update_string::String)
 
 
     return odict
+end
+
+function gemini(update_string::String)
+    odict = JSON.parse(update_string)
+
+    result = get(odict, "result", "")
+
+    if length(result) > 0
+        println("Received error message:")
+        println(update_string)
+    else
+        orders = Vector{GeminiOrder}([])
+
+        kind = qget(odict, "type")::String
+
+        eventID = nget(odict, "eventId")
+        # println("eventid $(typeof(eventID))")
+
+        socket_sequence = nget(odict, "socket_sequence")
+        # println("socket_sequence $(typeof(socket_sequence))")
+
+        timestamp = nget(odict, "timestamp")
+        # println("timestamp $(typeof(timestamp))")
+
+        timestampms = nget(odict, "timestampms")
+        # println("timestampms $(typeof(timestampms))")
+
+        events = get(odict, "events", Array{Any, 1}())
+        # println("events $(typeof(events))")
+
+        for i = events
+            # println(i)
+
+            eventType = qget(i, "type")::String
+            # println("eventType $(typeof(eventType))")
+
+            if eventType == "change"
+                # println("Change")
+                # Change stuff.
+                side = qget(i, "side")::String
+                price = qget(i, "price")::String
+                remaining = qget(i, "remaining")::String
+                delta = qget(i, "delta")::String
+                reason = qget(i, "reason")::String
+
+                #Generate a new order.
+                new_order = GeminiOrder(kind,
+                    eventID,
+                    timestamp,
+                    timestampms,
+                    socket_sequence,
+                    eventType,
+                    side,
+                    price,
+                    remaining,
+                    delta,
+                    reason, -1, "", "")
+
+                push!(orders, new_order)
+
+            elseif eventType == "trade"
+                # Trade stuff.
+                side = qget(i, "side")
+                tradeID = nget(i, "tid")
+                price = qget(i, "price")
+                amount = qget(i, "amount")
+                makerSide = qget(i, "makerSide")
+
+                #Generate a new order.
+                new_order = GeminiOrder(kind,
+                    eventID,
+                    timestamp,
+                    timestampms,
+                    socket_sequence,
+                    eventType,
+                    side,
+                    price,
+                    "",
+                    "",
+                    "",
+                    tradeID,
+                    amount,
+                    makerSide)
+
+                push!(orders, new_order)
+            end
+        end
+    end
+
+    return orders
 end
