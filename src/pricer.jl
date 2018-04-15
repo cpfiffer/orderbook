@@ -99,7 +99,7 @@ function evaluate(book::Book, trade_price :: Float64, trade_amount :: Float64)
     summarize_gemini(book)
 
     #println("Trade price: $trade_price Trade amount $trade_amount")
-    if trade_price > book.pricer.sell_price
+    if trade_price > book.pricer.sell_price && book.asset2 > book.pricer.sell_quantity
         println("\n")
         println(repeat("=", 30))
         println("Sale!")
@@ -113,7 +113,7 @@ function evaluate(book::Book, trade_price :: Float64, trade_amount :: Float64)
         # decrease our BTC holdings:
         book.asset2 -= amount
 
-    elseif trade_price < book.pricer.buy_price
+    elseif trade_price < book.pricer.buy_price && book.asset1 > book.pricer.buy_quantity
         println("\n")
         println(repeat("=", 30))
         println("Purchase!")

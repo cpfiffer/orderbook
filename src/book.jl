@@ -52,15 +52,17 @@ mutable struct Book
     asset1 :: Float64
     asset2 :: Float64
 
+    start_time :: DateTime
+
     Book() = new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
         Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
-        trade_table(), NullModel(), 1000.0, 0.0)
+        trade_table(), NullModel(), 1000.0, 0.0, now())
 
     function Book(model::String)
         if model == "inventory"
             return new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
                 Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
-                trade_table(), InventoryModel(), 1000.0, 0.0)
+                trade_table(), InventoryModel(), 1000.0, 0.0, now())
         else
             return Book()
         end
@@ -160,9 +162,12 @@ end
 function summarize_gemini(book::Book)
     println("\n===Summary===")
 
+    running_time = Dates.Minute(floor(now(), Dates.Minute) - floor(book.start_time, Dates.Minute))
+    println("Running time:       $running_time")
+
     numorders = length(book.prices)
 
-    println("Number of orders: $numorders")
+    println("Number of orders:   $numorders")
 
     bb = book.best_buy_str
 
@@ -187,23 +192,26 @@ function summarize_gemini(book::Book)
     end
 
     midpoint = (parse(Float64, bs) + parse(Float64, bb)) / 2
-    println("Midpoint:  $midpoint")
+    println("Midpoint:           $midpoint")
 
     spread = parse(Float64, bs) - parse(Float64, bb)
-    println("Spread: $spread")
+    println("Spread:             $spread")
 
     lastprice = book.last_price
-    println("Last price: $lastprice")
+    println("Last price:         $lastprice")
 
     vol = var(book.trade_prices)
-    println("Volatility: $vol")
+    println("Volatility:         $vol")
 
     sd = sqrt(vol)
     println("Standard deviation: $sd")
 
-    println("Dollars: $(book.asset1)")
-    println("BTC:     $(book.asset2)")
-    println("Value:   \$$(value(book))")
+    num_trades = length(book.trade_prices)
+    println("Number of trades:   $num_trades")
+
+    println("Dollars:            $(book.asset1)")
+    println("BTC:                $(book.asset2)")
+    println("Value:              \$$(value(book))")
 
     println("Model info:")
     show_model(book)
