@@ -12,10 +12,11 @@ include("order-subtypes.jl")
 include("handling.jl")
 include("gemini.jl")
 include("db.jl")
+include("pricer.jl")
 
 end # module
 
-#Orderbook.gemini_connect()
+Orderbook.gemini_connect()
 
 # gemini_1 = """{
 #        "type":"update",
@@ -32,13 +33,37 @@ end # module
 #              "makerSide":"ask"
 #           },
 #           {
+#              "type":"trade",
+#              "tid":1111597036,
+#              "price":"2559.99",
+#              "amount":"0.12365713",
+#              "makerSide":"bid"
+#           },
+#           {
 #              "type":"change",
 #              "side":"ask",
 #              "price":"2559.98",
 #              "remaining":"20.98651537",
 #              "delta":"-0.07365713",
-#              "reason":"trade"}]}""";
+#              "reason":"trade"},
+#              {
+#                 "type":"change",
+#                 "side":"bid",
+#                 "price":"2558.98",
+#                 "remaining":"20.98651537",
+#                 "delta":"-0.07365713",
+#                 "reason":"trade"},
+#                 {
+#                    "type":"trade",
+#                    "tid":1111597036,
+#                    "price":"2409.99",
+#                    "amount":"0.12365713",
+#                    "makerSide":"bid"
+#                 }]}""";
 #
-# book = Orderbook.Book()
+# book = Orderbook.Book("inventory")
 # Orderbook.update!(book, Orderbook.gemini(gemini_1))
-#
+# Orderbook.price!(book)
+# Orderbook.summarize_gemini(book)
+# #println(Orderbook.value(book))
+# book

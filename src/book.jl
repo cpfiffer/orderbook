@@ -1,5 +1,9 @@
 @enum Side buy=1 sell=-1 null=0
-@enum Exchange GDAX
+@enum Exchange GDAX Gemini
+
+abstract type PricingModel end
+
+struct NullModel <: PricingModel end
 
 function enum_side(side::String)
     if side == "buy" || side == "bid"
@@ -43,9 +47,32 @@ mutable struct Book
     trade_prices :: Vector{Float64}
     trades # Table
 
+    pricer :: PricingModel
+
+    asset1 :: Float64
+    asset2 :: Float64
+
     Book() = new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
         Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
-        trade_table())
+        trade_table(), NullModel(), 1000.0, 0.0)
+
+    function Book(model::String)
+        if model == "inventory"
+            return new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
+                Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
+                trade_table(), InventoryModel(), 1000.0, 0.0)
+        else
+            return Book()
+        end
+    end
+end
+
+function value(book::Book)
+    bs = parse(Float64, book.best_sell_str)
+
+    val = book.asset1 + book.asset2 * bs
+
+    return round(val, 2)
 end
 
 function getorder(book::Book, key::UInt64)
@@ -173,6 +200,13 @@ function summarize_gemini(book::Book)
 
     sd = sqrt(vol)
     println("Standard deviation: $sd")
+
+    println("Dollars: $(book.asset1)")
+    println("BTC:     $(book.asset2)")
+    println("Value:   \$$(value(book))")
+
+    println("Model info:")
+    show_model(book)
 end
 
 function delete_order!(book::Book, key::String)

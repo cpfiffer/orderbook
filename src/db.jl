@@ -11,6 +11,5 @@ function add!(book::Book, x::GeminiOrder)
     newrow = (x.timestampms, parse(Float64, x.price),
     parse(Float64, x.amount), x.makerSide)
     push!(rows(book.trades), newrow)
-    println(book.trades)
     return nothing
 end

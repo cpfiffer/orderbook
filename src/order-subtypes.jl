@@ -126,9 +126,11 @@ function update!(book::Book, x::Vector{GeminiOrder})
 
         if changeType == "trade"
             price = parse(Float64, i.price)
+            amount = parse(Float64, i.amount)
             book.last_price = price
             push!(book.trade_prices, price)
             add!(book, i)
+            evaluate(book, price, amount)
         end
     end
 end

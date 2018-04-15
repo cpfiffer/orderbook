@@ -26,6 +26,7 @@ function on_text(handler::MyHandler, text::String)
 
     try
         update!(handler.book, gemini(text))
+        price!(handler.book)
 
         if handler.counter == 100
             summarize_gemini(handler.book)
@@ -67,6 +68,7 @@ function state_open(handler::MyHandler)
             sleep(30)
 
             if handler.close
+                println("Closing in state_open")
                 put!(handler.stop_channel, true)
                 break
             end
@@ -85,13 +87,13 @@ function state_closed(handler::MyHandler)
 end
 
 
-function gemini_connect()
+function gemini_connect(model = "inventory")
     gemini_uri = URI("wss://api.gemini.com/v1/marketdata/BTCUSD")
     #echo_uri = URIParser.URI("ws://echo.websocket.org")
 
     client = WSClient()
     stop_chan = Channel{Any}(3)
-    book = Book()
+    book = Book(model)
     handler = MyHandler(client, stop_chan, book)
 
     wsconnect(client, gemini_uri, handler)
