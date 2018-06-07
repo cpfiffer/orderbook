@@ -1,5 +1,6 @@
 @enum Side buy=1 sell=-1 null=0
 @enum Exchange GDAX Gemini
+@enum StopType nominal notrade emergency
 
 abstract type PricingModel end
 
@@ -54,15 +55,19 @@ mutable struct Book
 
     start_time :: DateTime
 
+    mode :: StopType
+
+    socket_sequence :: Int64
+
     Book() = new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
         Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
-        trade_table(), NullModel(), 1000.0, 0.0, now())
+        trade_table(), NullModel(), 1000.0, 0.0, now(), nominal, -1)
 
     function Book(model::String)
         if model == "inventory"
             return new(Dict(), 0.0, 0.0, Vector{UInt64}([]), Vector{UInt64}([]),
                 Dict{String, Float64}(), "0", "0", zero(Float64), Vector{Float64}([]),
-                trade_table(), InventoryModel(), 1000.0, 0.0, now())
+                trade_table(), InventoryModel(), 1000.0, 0.0, now(), nominal, -1)
         else
             return Book()
         end
@@ -162,8 +167,12 @@ end
 function summarize_gemini(book::Book)
     println("\n===Summary===")
 
-    running_time = Dates.Minute(floor(now(), Dates.Minute) - floor(book.start_time, Dates.Minute))
+    now_minutes = floor(now(), Dates.Minute)
+    start_minutes = floor(book.start_time, Dates.Minute)
+    running_time = Dates.Minute(now_minutes - start_minutes)
     println("Running time:       $running_time")
+
+    println("Mode:               $(book.mode)")
 
     numorders = length(book.prices)
 
@@ -176,8 +185,8 @@ function summarize_gemini(book::Book)
     else
         bbq = book.prices[bb]
 
-        println("Best bid price: $bb")
-        println("Best bid quant: $bbq")
+        println("Best bid price:     $bb")
+        println("Best bid quant:     $bbq")
     end
 
     bs = book.best_sell_str
@@ -187,8 +196,8 @@ function summarize_gemini(book::Book)
     else
         bsq = book.prices[bs]
 
-        println("Best ask price: $bs")
-        println("Best ask quant: $bsq")
+        println("Best ask price:     $bs")
+        println("Best ask quant:     $bsq")
     end
 
     midpoint = (parse(Float64, bs) + parse(Float64, bb)) / 2

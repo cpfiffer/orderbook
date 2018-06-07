@@ -26,7 +26,7 @@ mutable struct InventoryModel <: PricingModel
 
     prices # table
 
-    InventoryModel() = new(0.0, 0.0, 0.01, 0.01, 0.0, 0.0)
+    InventoryModel() = new(0.0, 0.0, 0.05, 0.05, 0.0, 0.0)
 end
 
 function time_remaining()
@@ -57,7 +57,7 @@ function price!(book::Book, model::InventoryModel)
     # println("q: $q")
 
     # Risk aversion, parameterized.
-    const λ = 0.001
+    const λ = 0.01
 
     # Trade price variance.
     arr = convert(Array{Float64, 1}, select(book.trades, :price))

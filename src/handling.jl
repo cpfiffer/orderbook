@@ -88,30 +88,18 @@ function gemini(update_string::String)
         orders = Vector{GeminiOrder}([])
 
         kind = qget(odict, "type")::String
-
         eventID = nget(odict, "eventId")
-        # println("eventid $(typeof(eventID))")
-
         socket_sequence = nget(odict, "socket_sequence")
-        # println("socket_sequence $(typeof(socket_sequence))")
-
         timestamp = nget(odict, "timestamp")
-        # println("timestamp $(typeof(timestamp))")
-
         timestampms = nget(odict, "timestampms")
-        # println("timestampms $(typeof(timestampms))")
-
         events = get(odict, "events", Array{Any, 1}())
-        # println("events $(typeof(events))")
 
         for i = events
             # println(i)
 
             eventType = qget(i, "type")::String
-            # println("eventType $(typeof(eventType))")
 
             if eventType == "change"
-                # println("Change")
                 # Change stuff.
                 side = qget(i, "side")::String
                 price = qget(i, "price")::String
@@ -159,6 +147,9 @@ function gemini(update_string::String)
                     makerSide)
 
                 push!(orders, new_order)
+            else
+                println("Unexpected message type.")
+                println(update_string)
             end
         end
     end

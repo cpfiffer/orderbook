@@ -13,6 +13,7 @@ include("handling.jl")
 include("gemini.jl")
 include("db.jl")
 include("pricer.jl")
+include("trader.jl")
 
 end # module
 

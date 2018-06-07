@@ -24,23 +24,34 @@ function on_text(handler::MyHandler, text::String)
     handler.received += 1
     handler.counter = handler.counter + 1
 
-    try
-        update!(handler.book, gemini(text))
-        price!(handler.book)
+    if handler.book.mode == nominal
+        try
+            update!(handler.book, gemini(text))
+            price!(handler.book)
 
-        if handler.counter == 100
-            summarize_gemini(handler.book)
-            handler.counter = 0
+            if handler.book.mode == nominal
+                #Trade
+            end
+
+            if handler.counter == 100
+                summarize_gemini(handler.book)
+                handler.counter = 0
+            end
+        catch y
+            println("Error: $y")
+            println(catch_stacktrace())
+            handler.errors += 1
+            handler.close = true
+            handler.book.mode = notrade
         end
-    catch y
-        println("Error: $y")
-        println(catch_stacktrace())
-        handler.errors += 1
-        handler.close = true
-    end
 
-    err = handler.errors
-    rec = handler.received
+        err = handler.errors
+        rec = handler.received
+    elseif handler.book.mode == notrade
+        # Pull all current trades and don't make new ones.
+    else
+        # Emergency!
+    end
 end
 
 on_binary(::MyHandler, data::Vector{UInt8}) = println("Received: $(String(data))")
@@ -56,27 +67,10 @@ state_connecting(::MyHandler) = println("State: CONNECTING")
 function state_open(handler::MyHandler)
     println("State: OPEN")
 
-    try
-        println("Loading trades from '$trades_directory'...")
-        handler.book.trades = load(trades_directory)
-    catch
-        println("Couldn't load trades, continuing...")
-    end
+    # Send events subscription.
+    #events_uri = URI("wss://api.gemini.com/v1/order/events")
 
-    @schedule begin
-        while true
-            sleep(30)
-
-            if handler.close
-                println("Closing in state_open")
-                put!(handler.stop_channel, true)
-                break
-            end
-
-            println("\nSaving trades to '$trades_directory'...")
-            save(handler.book.trades, trades_directory)
-        end
-    end
+    # send_text()
 end
 
 function state_closed(handler::MyHandler)
@@ -86,17 +80,50 @@ function state_closed(handler::MyHandler)
     put!(handler.stop_channel, true)
 end
 
+function run(handler::MyHandler)
+    try
+        while true
+            if handler.close
+                throw("Handler told us to close.")
+            end
+            sleep(2)
+            #println("Running...")
+        end
+    catch
+        handler.close = true
+        handler.book.mode = notrade
+        put!(handler.stop_channel, true)
+        println("Stopping...")
+    end
+
+    #println("\nSaving trades to '$trades_directory'...")
+    #save(handler.book.trades, trades_directory)
+end
 
 function gemini_connect(model = "inventory")
-    gemini_uri = URI("wss://api.gemini.com/v1/marketdata/BTCUSD")
+    gemini_sandbox_uri = URI("wss://api.sandbox.gemini.com/v1/marketdata/BTCUSD")
+    events_uri = URI("wss://api.sandbox.gemini.com/v1/order/events")
+    #gemini_uri = URI("wss://api.gemini.com/v1/marketdata/BTCUSD")
     #echo_uri = URIParser.URI("ws://echo.websocket.org")
 
-    client = WSClient()
+    client = WSClient(Nullable{WebSocketsConnection}(), do_handshake_gem)
     stop_chan = Channel{Any}(3)
     book = Book(model)
     handler = MyHandler(client, stop_chan, book)
 
-    wsconnect(client, gemini_uri, handler)
+    wsconnect(client, events_uri, handler)
+
+    cryptobot = @schedule run(handler)
+
+    line = readline(STDIN)
+
+    try
+        schedule(cryptobot, InterruptException(), error = true)
+    catch
+        println("Task already stopped.")
+    end
+
+    handler.close = true
 
     take!(stop_chan)
     stop(client)

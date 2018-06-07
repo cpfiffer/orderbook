@@ -86,11 +86,24 @@ function broaden(x::GeminiOrder)
     return NumOrder(size, price, bid)
 end
 
+function tryadd!(socks::Vector{Int64}, num::Int64)
+    if num in socks
+        # Do nothing
+    else
+        push!(socks, num)
+    end
+end
+
 function update!(book::Book, x::Vector{GeminiOrder})
+
+    # we need to track all the socket sequence nums
+    socket_seqs = Vector{Int64}([])
 
     # Add each order to the book. Gemini orders aren't particularly
     # identifiable, so we only track prices and depth.
     for i = x
+        tryadd!(socket_seqs, i.socket_sequence)
+
         changeType = i.eventType
 
         if changeType == "change"
@@ -131,6 +144,29 @@ function update!(book::Book, x::Vector{GeminiOrder})
             push!(book.trade_prices, price)
             add!(book, i)
             evaluate(book, price, amount)
+        end
+    end
+
+    update_socket!(book, socket_seqs)
+end
+
+function update_socket!(book::Book, socks::Vector{Int64})
+    # For each vector we need to determine two things.
+    # One, the vector is monotonically increasing with no
+    # missing numbers.
+    # Two, the lowest number is one higher than the current socket sequence.
+    println(book.socket_sequence)
+    println(socks)
+    sort!(socks)
+    println(socks)
+
+    last = book.socket_sequence
+    for i = socks
+        if i == last + 1
+            last = i
+        else
+            # Error, stop the thing.
+            throw("Socket sequence not monotonically increasing.")
         end
     end
 end
